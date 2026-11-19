@@ -58,6 +58,7 @@ a.repl{text-decoration:underline dotted}
 .dmst{padding:16px;background:var(--bg);display:flex;justify-content:center}
 .dmbox{position:relative;display:block;max-width:100%;transition:opacity .3s;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
 .dmbox img{display:block;width:100%;height:auto}
+#dmlens{position:absolute;border-radius:50%;border:3px solid #2563eb;box-shadow:0 4px 14px rgba(0,0,0,.35);background-repeat:no-repeat;background-color:#fff;opacity:0;transition:opacity .25s;pointer-events:none;z-index:2}
 #dmcur{position:absolute;left:105%;top:105%;width:30px;height:30px;margin:-3px 0 0 -3px;pointer-events:none;z-index:3;filter:drop-shadow(0 2px 3px rgba(0,0,0,.4));transform-origin:4px 3px}
 #dmcur.press{transform:scale(.8)}
 #dmrip{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;border:3px solid #e11d48;opacity:0;pointer-events:none;z-index:2}
@@ -515,7 +516,7 @@ function demoPage(id){
   const t=T[id], N=d.scenes.length;
   document.getElementById('app').innerHTML=`<div class="crumbs">${a('','בית')} › ${a('d','הדמיות')} › ${a('t/'+id,esc(t.t))}</div>
   <div class="wt"><div class="wth"><b>🎥 ${esc(d.title)}</b><button class="btn" id="dmrs">↻ מההתחלה</button><button class="btn" id="dmsp">מהירות: רגילה</button><button class="btn" id="dmvo">🔇 הקראה: כבויה</button><select class="btn" id="dmvs" title="בחירת קול" style="display:none;max-width:200px"></select></div>
-  <div class="dmst"><div class="dmbox"><img id="dmimg" alt=""><div id="dmcur"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M3 2l7.5 19 2.7-7.8L21 10.5z" fill="#111" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></div><div id="dmrip"></div><div id="dmkey"></div></div></div>
+  <div class="dmst"><div class="dmbox"><img id="dmimg" alt=""><div id="dmcur"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M3 2l7.5 19 2.7-7.8L21 10.5z" fill="#111" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></div><div id="dmlens"></div><div id="dmrip"></div><div id="dmkey"></div></div></div>
   <div class="dmcap" id="dmcap"></div>
   <div class="wtf"><button class="btn" id="dmprev">→ הקודם</button><button class="btn" id="dmpp">⏸ השהה</button><span class="wtc" id="dmct"></span><button class="btn" id="dmnext">הבא ←</button><a class="btn" href="#t/${id}">לטקסט המלא ←</a></div></div>`;
   const $=i=>document.getElementById(i);
@@ -547,6 +548,11 @@ function demoPage(id){
   const onKey=e=>{ if(DM!==my||my.cancel){document.removeEventListener('keydown',onKey);return;} if(e.target.tagName==='INPUT') return; if(e.key==='ArrowLeft') $('dmnext').click(); else if(e.key==='ArrowRight') $('dmprev').click(); else if(e.key===' '){e.preventDefault();$('dmpp').click();} };
   document.addEventListener('keydown',onKey);
   const cur=$('dmcur'),img=$('dmimg'),box=document.querySelector('.dmbox');
+  const lens=$('dmlens'), Z=2.6;
+  const lensShow=(x,y)=>{ const bw=box.clientWidth,bh=box.clientHeight,L=Math.round(Math.min(170,bw*.5,bh*.9)); if(L<60) return;
+    const px=x/100*bw,py=y/100*bh,cx=Math.max(L/2,Math.min(bw-L/2,px)),cy=Math.max(L/2,Math.min(bh-L/2,py));
+    Object.assign(lens.style,{width:L+'px',height:L+'px',left:(cx-L/2)+'px',top:(cy-L/2)+'px',backgroundImage:`url("${img.src}")`,backgroundSize:`${bw*Z}px ${bh*Z}px`,backgroundPosition:`${L/2-px*Z}px ${L/2-py*Z}px`,opacity:1}); };
+  const lensHide=()=>{ lens.style.opacity=0; };
   const pos=(x,y,ms)=>{cur.style.transition=`left ${ms/my.speed}ms ease-in-out, top ${ms/my.speed}ms ease-in-out`;cur.style.left=x+'%';cur.style.top=y+'%';};
   (async()=>{
     let si=0;
@@ -556,7 +562,7 @@ function demoPage(id){
       box.style.opacity=0; await sleep(250); if(my.cancel) return; if(my.jump!==null){si=my.jump;continue;}
       await new Promise(r=>{img.onload=r;img.onerror=r;img.src=sc.img;});
       { const ra=(img.naturalWidth||4)/(img.naturalHeight||3); box.style.width=Math.max(Math.min(820,innerHeight*.46*ra),Math.min(460,innerWidth-60))+'px'; }
-      cur.style.transition='none'; cur.style.left='105%'; cur.style.top='105%'; $('dmkey').classList.remove('on');
+      lensHide(); cur.style.transition='none'; cur.style.left='105%'; cur.style.top='105%'; $('dmkey').classList.remove('on');
       $('dmcap').innerHTML=capHTML(sc.h); $('dmcap').scrollTop=0; say(sc.v); $('dmct').textContent=`מסך ${si+1} מתוך ${N}`;
       $('dmprev').disabled=si===0; $('dmnext').disabled=si===N-1;
       box.style.opacity=1; await sleep(600);
@@ -564,11 +570,11 @@ function demoPage(id){
       for(const st of pts){
         if(my.cancel||my.jump!==null) break; await gate();
         const p=Array.isArray(st)?{x:st[0],y:st[1],click:1}:st;
-        pos(p.x,p.y,1200); await sleep(1300);
+        lensHide(); pos(p.x,p.y,1200); await sleep(1300); if(my.jump===null){ lensShow(p.x,p.y); await sleep(800); }
         if(p.key){ const k=$('dmkey'); k.textContent=p.key; k.classList.add('on'); await sleep(1300); k.classList.remove('on'); }
         if(p.click&&my.jump===null){ const r=$('dmrip'); r.style.left=p.x+'%'; r.style.top=p.y+'%'; r.classList.remove('go'); void r.offsetWidth; r.classList.add('go'); cur.classList.add('press'); await sleep(250); cur.classList.remove('press'); await sleep(500); }
       }
-      if(my.jump===null) await sleep(Math.max(1500,Math.min(7000,(sc.v||'').length*45)));
+      lensHide(); if(my.jump===null) await sleep(Math.max(1500,Math.min(7000,(sc.v||'').length*45)));
       while(vo&&my.speaking&&!my.cancel&&my.jump===null) await new Promise(r=>setTimeout(r,100));
       si=my.jump!==null?my.jump:si+1;
     }
