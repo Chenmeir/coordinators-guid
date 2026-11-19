@@ -512,7 +512,7 @@ function demoPage(id){
   const d=DEMOS[id]; if(!d||!d.scenes.length){ demoIndex(); return; }
   const t=T[id], N=d.scenes.length;
   document.getElementById('app').innerHTML=`<div class="crumbs">${a('','בית')} › ${a('d','הדמיות')} › ${a('t/'+id,esc(t.t))}</div>
-  <div class="wt"><div class="wth"><b>🎥 ${esc(d.title)}</b><button class="btn" id="dmrs">↻ מההתחלה</button><button class="btn" id="dmsp">מהירות: רגילה</button><button class="btn" id="dmvo">🔇 הקראה: כבויה</button></div>
+  <div class="wt"><div class="wth"><b>🎥 ${esc(d.title)}</b><button class="btn" id="dmrs">↻ מההתחלה</button><button class="btn" id="dmsp">מהירות: רגילה</button><button class="btn" id="dmvo">🔇 הקראה: כבויה</button><select class="btn" id="dmvs" title="בחירת קול" style="display:none;max-width:200px"></select></div>
   <div class="dmst"><div class="dmbox"><img id="dmimg" alt=""><div id="dmcur"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M3 2l7.5 19 2.7-7.8L21 10.5z" fill="#111" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></div><div id="dmrip"></div><div id="dmkey"></div></div></div>
   <div class="dmcap" id="dmcap"></div>
   <div class="wtf"><button class="btn" id="dmprev">→ הקודם</button><button class="btn" id="dmpp">⏸ השהה</button><span class="wtc" id="dmct"></span><button class="btn" id="dmnext">הבא ←</button><a class="btn" href="#t/${id}">לטקסט המלא ←</a></div></div>`;
@@ -525,11 +525,19 @@ function demoPage(id){
   $('dmsp').onclick=()=>{my.speed=my.speed===1?.6:(my.speed===.6?1.6:1);$('dmsp').textContent='מהירות: '+(my.speed===1?'רגילה':my.speed<1?'איטית':'מהירה');};
   const SS=window.speechSynthesis; let vo=false; try{vo=localStorage.getItem('dm_voice')==='1'&&!!SS;}catch(e){}
   const voBtn=()=>{$('dmvo').textContent=vo?'🔊 הקראה: פעילה':'🔇 הקראה: כבויה';};
+  const hebVoices=()=>SS?SS.getVoices().filter(v=>/^he/i.test(v.lang)||/hebrew|עברית|hila|asaf|avri/i.test(v.name)):[];
+  const rank=v=>(/natural|online/i.test(v.name)?0:1)+(/avri|hila/i.test(v.name)?0:.5);
+  const fillVoices=()=>{ const L=hebVoices().sort((a,b)=>rank(a)-rank(b)), sel=$('dmvs'); if(!L.length){sel.style.display='none';return;}
+    let saved=''; try{saved=localStorage.getItem('dm_vname')||'';}catch(e){}
+    sel.innerHTML=L.map(v=>`<option value="${esc(v.name)}"${v.name===saved?' selected':''}>${esc(v.name.replace(/^Microsoft\s*/,''))}</option>`).join(''); sel.style.display=vo?'':'none'; };
+  if(SS){ SS.onvoiceschanged=fillVoices; fillVoices(); }
+  $('dmvs').onchange=()=>{ try{localStorage.setItem('dm_vname',$('dmvs').value);}catch(e){} say(d.scenes[my.i].t); };
+  const clean=t=>t.replace(/\s*…$/,'').replace(/ctrl\s*\+\s*0/ig,'קונטרול אפס').replace(/ctrl\s*\+\s*([a-z0-9])/ig,'קונטרול $1').replace(/[›<>→←»«]+/g,', ואז ').replace(/["'״׳]/g,'').replace(/[()\[\]]/g,', ').replace(/\s*[-–—]\s*/g,', ').replace(/\//g,' או ').replace(/\s+/g,' ');
   const say=txt=>{ my.speaking=false; if(!SS) return; SS.cancel(); if(!vo||!txt) return;
-    const u=new SpeechSynthesisUtterance(txt.replace(/\s*…$/,'')); u.lang='he-IL'; u.rate=Math.min(1.6,my.speed*0.95);
-    const hv=SS.getVoices().find(v=>/^he/i.test(v.lang)); if(hv) u.voice=hv;
+    const u=new SpeechSynthesisUtterance(clean(txt)); u.lang='he-IL'; u.rate=Math.min(1.5,my.speed*0.9);
+    const L=hebVoices().sort((a,b)=>rank(a)-rank(b)), pick=$('dmvs').value, hv=L.find(v=>v.name===pick)||L[0]; if(hv) u.voice=hv;
     my.speaking=true; u.onend=u.onerror=()=>{my.speaking=false;}; SS.speak(u); };
-  $('dmvo').onclick=()=>{ if(!SS){ alert('הדפדפן הזה לא תומך בהקראה'); return; } vo=!vo; try{localStorage.setItem('dm_voice',vo?'1':'0');}catch(e){} voBtn(); if(vo) say(d.scenes[my.i].t); else SS.cancel(); };
+  $('dmvo').onclick=()=>{ if(!SS){ alert('הדפדפן הזה לא תומך בהקראה'); return; } vo=!vo; try{localStorage.setItem('dm_voice',vo?'1':'0');}catch(e){} voBtn(); fillVoices(); if(vo) say(d.scenes[my.i].t); else SS.cancel(); };
   voBtn(); my.stop=()=>{ if(SS) SS.cancel(); };
   $('dmrs').onclick=()=>{my.jump=0;};
   $('dmprev').onclick=()=>{my.jump=Math.max(0,my.i-1);};
